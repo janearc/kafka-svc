@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+# Enforce 80% coverage floor before push
+set -e
+
+# Dummy check for now, in a real Go or Python project we would parse the coverage
+if [ -f "coverage.out" ]; then
+    # Go coverage logic
+    COVERAGE=$(go tool cover -func=coverage.out | grep total | awk '{print substr($3, 1, length($3)-1)}')
+    if (( $(echo "$COVERAGE < 80" | bc -l) )); then
+        echo "Error: Coverage is $COVERAGE%, which is below the 80% floor."
+        exit 1
+    fi
+elif [ -f ".coverage" ]; then
+    # Python coverage logic (requires coverage module)
+    COVERAGE=$(coverage report | tail -n 1 | awk '{print $4}' | sed 's/%//')
+    if (( $(echo "$COVERAGE < 80" | bc -l) )); then
+        echo "Error: Coverage is $COVERAGE%, which is below the 80% floor."
+        exit 1
+    fi
+fi
+
+exit 0
