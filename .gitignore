@@ -1,0 +1,3 @@
+# generated protobuf bindings are never committed — run `task generate` to
+# produce them locally. protoc/buf emit "NO CHECKED-IN PROTOBUF GENCODE".
+gen/

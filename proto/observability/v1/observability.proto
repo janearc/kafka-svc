@@ -1,0 +1,67 @@
+syntax = "proto3";
+
+package observability.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/janearc/kafka-svc/gen/go/observability/v1;observabilityv1";
+
+// HealthState is the fleet-wide health classification shared by service
+// heartbeats, fleet rollups, and quota runway.
+enum HealthState {
+  HEALTH_STATE_UNSPECIFIED = 0;
+  HEALTH_STATE_GREEN = 1;
+  HEALTH_STATE_YELLOW = 2;
+  HEALTH_STATE_RED = 3;
+  HEALTH_STATE_EXHAUSTED = 4; // terminal: quota fully consumed
+}
+
+// ServiceHealthHeartbeat is emitted by every fleet service on its heartbeat
+// tick. Subject (RecordNameStrategy): observability.v1.ServiceHealthHeartbeat.
+message ServiceHealthHeartbeat {
+  string service_name = 1;
+  HealthState current_state = 2;
+  uint32 uptime_seconds = 3;
+  uint32 internal_load_metric = 4;
+  google.protobuf.Timestamp timestamp = 5;
+
+  // idempotency_key makes duplicate delivery safe (UUID or service+timestamp).
+  string idempotency_key = 6;
+}
+
+// TokenBurnEvent records LLM token consumption for cost and activity tracking.
+message TokenBurnEvent {
+  string agent_id = 1;
+  string action_context = 2;
+  uint32 tokens_consumed = 3;
+  optional uint32 cost_estimated_micro_usd = 4;
+  google.protobuf.Timestamp timestamp = 5;
+  string idempotency_key = 6;
+}
+
+// WidgetStatePayload is the aggregated snapshot pushed to the observability
+// widget by obs-svc-agg.
+message WidgetStatePayload {
+  google.protobuf.Timestamp calculated_at = 1;
+  FleetMetrics fleet = 2;
+  QuotaMetrics quota = 3;
+}
+
+// FleetMetrics is the rolled-up health of the node fleet at a point in time,
+// computed by obs-svc-agg from the per-service heartbeats it consumes.
+message FleetMetrics {
+  HealthState overall_health = 1;
+  uint32 active_nodes = 2;
+  uint32 degraded_nodes = 3;
+  string active_discovery_endpoint = 4;
+}
+
+// QuotaMetrics is the LLM token runway: how much budget remains and how fast it
+// is burning. It drives the widget's quota state, including the terminal
+// HEALTH_STATE_EXHAUSTED when the runway hits zero.
+message QuotaMetrics {
+  HealthState runway_state = 1;
+  uint32 runway_minutes_remaining = 2;
+  uint32 burn_rate_tokens_per_minute = 3;
+  uint32 absolute_quota_remaining_cents = 4;
+}

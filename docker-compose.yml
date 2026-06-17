@@ -39,3 +39,22 @@ services:
       - "2181"
     labels:
       - "fleet.essential=true"
+
+  schema-registry:
+    image: confluentinc/cp-schema-registry:7.5.0
+    container_name: schema-registry
+    depends_on:
+      - kafka
+    environment:
+      - SCHEMA_REGISTRY_HOST_NAME=schema-registry
+      - SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS=PLAINTEXT://kafka:9092
+      - SCHEMA_REGISTRY_LISTENERS=http://0.0.0.0:8081
+      # fleet-wide default: never break forward or backward across schema history
+      - SCHEMA_REGISTRY_SCHEMA_COMPATIBILITY_LEVEL=full_transitive
+    ports:
+      - "8081"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.schema-registry.rule=Host(`schema-registry.localhost`)"
+      - "traefik.http.services.schema-registry.loadbalancer.server.port=8081"
+      - "fleet.essential=true"

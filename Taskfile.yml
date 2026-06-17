@@ -1,0 +1,25 @@
+version: "3"
+
+# Schema governance gates. buf is required (https://buf.build); these run in
+# pre-commit / CI, not from the daemon.
+tasks:
+  lint:
+    desc: Lint the protobuf contracts.
+    cmds:
+      - buf lint
+
+  breaking:
+    desc: Reject schema changes that break FULL_TRANSITIVE compatibility against main.
+    cmds:
+      - buf breaking --against ".git#branch=main"
+
+  generate:
+    desc: Generate language bindings into gen/ (never committed; see .gitignore).
+    cmds:
+      - buf generate
+
+  ci:
+    desc: Full pre-commit / CI gate.
+    cmds:
+      - task: lint
+      - task: breaking
