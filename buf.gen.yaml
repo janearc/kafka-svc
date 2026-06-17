@@ -1,0 +1,8 @@
+version: v2
+plugins:
+  # generated bindings are written under gen/ and are NOT committed (see .gitignore).
+  - remote: buf.build/protocolbuffers/go
+    out: gen/go
+    opt: paths=source_relative
+  - remote: buf.build/protocolbuffers/python
+    out: gen/python
