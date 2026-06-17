@@ -47,6 +47,8 @@ message WidgetStatePayload {
   QuotaMetrics quota = 3;
 }
 
+// FleetMetrics is the rolled-up health of the node fleet at a point in time,
+// computed by obs-svc-agg from the per-service heartbeats it consumes.
 message FleetMetrics {
   HealthState overall_health = 1;
   uint32 active_nodes = 2;
@@ -54,6 +56,9 @@ message FleetMetrics {
   string active_discovery_endpoint = 4;
 }
 
+// QuotaMetrics is the LLM token runway: how much budget remains and how fast it
+// is burning. It drives the widget's quota state, including the terminal
+// HEALTH_STATE_EXHAUSTED when the runway hits zero.
 message QuotaMetrics {
   HealthState runway_state = 1;
   uint32 runway_minutes_remaining = 2;

@@ -40,7 +40,10 @@ them into `gen/` (gitignored); consumers regenerate from this contract.
 
 ## Naming conventions
 
-**Topics** are lowercase, dot-delimited, and treated as a stable API:
+**Topics** are lowercase and treated as a stable API. Hierarchy levels are
+separated by dots; a level that needs more than one word is kebab-cased within
+that level (so `token-burn` is a single level, not two). This is the Confluent
+convention — `.` is structure, `-` is intra-level word separation:
 
 | Topic | Carries |
 |-------|---------|
@@ -56,11 +59,15 @@ enforceable across the whole fleet.
 
 ## Governance
 
-`buf` gates every change (run via `task`, enforced in CI / pre-commit):
+`buf` gates every change. The targets are defined in `Taskfile.yml` and run with
+[Task](https://taskfile.dev) (`go-task`); both `task` and `buf` must be on
+`PATH` (they run in CI / pre-commit, not from the daemon). `task generate` is a
+thin wrapper over `buf generate` — it produces the language bindings, it does
+not change any contract.
 
 ```bash
-task lint      # STANDARD lint rules
-task breaking  # reject FULL_TRANSITIVE violations against main
-task generate  # emit bindings into gen/ (not committed)
+task lint      # buf lint: STANDARD lint rules
+task breaking  # buf breaking: reject FULL_TRANSITIVE violations against main
+task generate  # buf generate: emit bindings into gen/ (not committed)
 task ci        # lint + breaking
 ```
