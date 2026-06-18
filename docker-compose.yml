@@ -9,7 +9,11 @@ services:
       - KAFKA_NUM_PARTITIONS=1
       - KAFKA_LOG_DIRS=/kafka/logs
       - KAFKA_ZOOKEEPER_CONNECT=zookeeper:2181
-      - KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://kafka.localhost:9092
+      # advertise the in-network docker name so every service on dev-fleet (and
+      # schema-registry, whose bootstrap is kafka:9092) can actually reconnect.
+      # the prior kafka.localhost:9092 only resolved from the host and silently
+      # broke in-cluster clients.
+      - KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092
       - KAFKA_LISTENERS=PLAINTEXT://0.0.0.0:9092
       - KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR=1
       - KAFKA_HEAP_OPTS=-Xms512m -Xmx1024m
@@ -19,6 +23,8 @@ services:
       - /Users/jane/var/kafka:/kafka/logs
     depends_on:
       - zookeeper
+    networks:
+      - dev-fleet
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.kafka.rule=Host(`kafka.localhost`)"
@@ -37,6 +43,8 @@ services:
       - ZOOKEEPER_TICK_TIME=2000
     ports:
       - "2181"
+    networks:
+      - dev-fleet
     labels:
       - "fleet.essential=true"
 
@@ -53,8 +61,17 @@ services:
       - SCHEMA_REGISTRY_SCHEMA_COMPATIBILITY_LEVEL=full_transitive
     ports:
       - "8081"
+    networks:
+      - dev-fleet
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.schema-registry.rule=Host(`schema-registry.localhost`)"
       - "traefik.http.services.schema-registry.loadbalancer.server.port=8081"
       - "fleet.essential=true"
+
+# dev-fleet is the single shared "dev" network (defined/owned by traefik).
+# Everything lives here so services reach each other by docker DNS name; traefik
+# coordinates HTTP on top. No segmentation -- that's a kube concern for later.
+networks:
+  dev-fleet:
+    external: true
