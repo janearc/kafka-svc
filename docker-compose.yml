@@ -30,6 +30,10 @@ services:
       - "traefik.http.routers.kafka.rule=Host(`kafka.localhost`)"
       - "traefik.http.services.kafka.loadbalancer.server.port=9092"
       - "fleet.essential=true"
+      # self-declare the lifecycle tier. fleet's start/stop ordering reads this
+      # label to discover the message backbone instead of matching repo name; the
+      # bus comes up after the network owner and before the control plane.
+      - "fleet.tier=backbone"
     deploy:
       resources:
         limits:
@@ -47,6 +51,9 @@ services:
       - dev-fleet
     labels:
       - "fleet.essential=true"
+      # zookeeper is part of the message backbone tier (kafka depends on it);
+      # declare the same lifecycle tier so it starts/stops with the bus.
+      - "fleet.tier=backbone"
 
   schema-registry:
     image: confluentinc/cp-schema-registry:7.5.0
@@ -68,6 +75,8 @@ services:
       - "traefik.http.routers.schema-registry.rule=Host(`schema-registry.localhost`)"
       - "traefik.http.services.schema-registry.loadbalancer.server.port=8081"
       - "fleet.essential=true"
+      # schema-registry rides with the bus it fronts; same backbone tier.
+      - "fleet.tier=backbone"
 
 # dev-fleet is the single shared "dev" network (defined/owned by traefik).
 # Everything lives here so services reach each other by docker DNS name; traefik
