@@ -1,0 +1,134 @@
+# Zookeeper: broker coordination for kafka. Modeled as a single-replica
+# StatefulSet so it gets a stable network identity (zookeeper-0) and a stable
+# volume. The compose zookeeper ran without a persistent volume (its state was
+# ephemeral and rebuilt from the broker on restart); under k8s we give it real
+# storage so a pod reschedule does not silently drop the in-flight ensemble
+# state. The path is NEW (~/var/zookeeper) -- it does not touch the kafka log
+# dir -- and the primary agent creates it on the node before first apply.
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: zookeeper-data
+  labels:
+    app.kubernetes.io/name: zookeeper
+    app.kubernetes.io/part-of: fleet
+spec:
+  capacity:
+    storage: 2Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  # storageClassName "" pins this to manual (static) binding so the cluster's
+  # default dynamic provisioner does not hand zookeeper a throwaway volume
+  # instead of this host path.
+  storageClassName: ""
+  hostPath:
+    path: /Users/jane/var/zookeeper
+    type: DirectoryOrCreate
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: zookeeper-data
+  namespace: fleet
+  labels:
+    app.kubernetes.io/name: zookeeper
+    app.kubernetes.io/part-of: fleet
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: ""
+  volumeName: zookeeper-data
+  resources:
+    requests:
+      storage: 2Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: zookeeper
+  namespace: fleet
+  labels:
+    app.kubernetes.io/name: zookeeper
+    app.kubernetes.io/part-of: fleet
+spec:
+  # Headless: kafka addresses zookeeper by the stable pod DNS the StatefulSet
+  # gives it (zookeeper-0.zookeeper.fleet.svc.cluster.local) and by the service
+  # name zookeeper:2181 -- matching the compose KAFKA_ZOOKEEPER_CONNECT value.
+  clusterIP: None
+  selector:
+    app.kubernetes.io/name: zookeeper
+  ports:
+    - name: client
+      port: 2181
+      targetPort: 2181
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: zookeeper
+  namespace: fleet
+  labels:
+    app.kubernetes.io/name: zookeeper
+    app.kubernetes.io/part-of: fleet
+spec:
+  serviceName: zookeeper
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: zookeeper
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: zookeeper
+        app.kubernetes.io/part-of: fleet
+    spec:
+      containers:
+        - name: zookeeper
+          image: confluentinc/cp-zookeeper:7.5.0
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: ZOOKEEPER_CLIENT_PORT
+              value: "2181"
+            - name: ZOOKEEPER_TICK_TIME
+              value: "2000"
+            # cp-zookeeper writes its dataDir under /var/lib/zookeeper/data and
+            # txn log under /var/lib/zookeeper/log; we persist the data dir.
+            - name: ZOOKEEPER_DATA_DIR
+              value: /var/lib/zookeeper/data
+          ports:
+            - name: client
+              containerPort: 2181
+          # readiness: zookeeper answers the four-letter "ruok" with "imok" on
+          # the client port once it is actually serving. schema-registry and
+          # kafka both depend on this being true, not merely on the pod existing
+          # (the lesson from compose: depends_on is start-order, not readiness).
+          readinessProbe:
+            exec:
+              command: ["sh", "-c", "echo ruok | nc -w 2 localhost 2181 | grep -q imok"]
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 6
+          livenessProbe:
+            tcpSocket:
+              port: 2181
+            initialDelaySeconds: 20
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 6
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi
+          volumeMounts:
+            - name: zookeeper-data
+              mountPath: /var/lib/zookeeper/data
+      volumes:
+        - name: zookeeper-data
+          persistentVolumeClaim:
+            claimName: zookeeper-data

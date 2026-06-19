@@ -1,0 +1,17 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Every object lands in the fleet namespace. namespace.yaml itself is a cluster-
+# scoped object and is unaffected by this setting.
+namespace: fleet
+
+labels:
+  - pairs:
+      app.kubernetes.io/part-of: fleet
+    includeSelectors: false
+
+resources:
+  - namespace.yaml
+  - zookeeper.yaml
+  - kafka.yaml
+  - schema-registry.yaml
