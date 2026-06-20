@@ -1,0 +1,9 @@
+# Throwaway namespace for the end-to-end test. Isolated from the live `fleet`
+# namespace so the test never collides with running services.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kafka-e2e
+  labels:
+    app.kubernetes.io/part-of: fleet
+    fleet.test: e2e
