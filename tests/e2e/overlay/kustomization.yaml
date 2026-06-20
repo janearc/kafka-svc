@@ -1,0 +1,132 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# E2E overlay: stand the kafka tier up in an isolated, throwaway namespace with
+# DYNAMIC storage (the cluster's default storageclass) instead of the base's
+# host-path PersistentVolumes. That keeps the test hermetic -- it never touches
+# ~/var or the live `fleet` data, and it runs anywhere with a default
+# provisioner (k3d/kind both ship local-path) -- while still exercising the same
+# Deployment / StatefulSet / Service / probe wiring where every cutover defect
+# lived. Crucially, the dynamic PVCs persist across a pod delete, so the
+# cluster-id-survives-a-zookeeper-restart regression is exercised for real.
+#
+# The overlay lives under tests/ rather than kube/ on purpose: kustomize refuses
+# to build an overlay that sits inside its own base root (cycle detection), so
+# it references the base via ../../../kube.
+
+namespace: kafka-e2e
+
+resources:
+  - ../../../kube
+  - namespace.yaml
+
+patches:
+  # the base ships a `fleet` Namespace object; this overlay owns kafka-e2e
+  # instead, so drop it.
+  - target:
+      kind: Namespace
+      name: fleet
+    patch: |
+      $patch: delete
+      apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: fleet
+
+  # delete the host-path PersistentVolumes -- e2e provisions storage
+  # dynamically, so the static PVs (and their ~/var paths) must not be created.
+  - target:
+      kind: PersistentVolume
+      name: kafka-logs
+    patch: |
+      $patch: delete
+      apiVersion: v1
+      kind: PersistentVolume
+      metadata:
+        name: kafka-logs
+  - target:
+      kind: PersistentVolume
+      name: zookeeper-data
+    patch: |
+      $patch: delete
+      apiVersion: v1
+      kind: PersistentVolume
+      metadata:
+        name: zookeeper-data
+  - target:
+      kind: PersistentVolume
+      name: zookeeper-txnlog
+    patch: |
+      $patch: delete
+      apiVersion: v1
+      kind: PersistentVolume
+      metadata:
+        name: zookeeper-txnlog
+
+  # repoint each PVC from static host-path binding to the default dynamic
+  # storageclass: drop the explicit volumeName and the "" storageClassName that
+  # pins it to manual binding. With both removed the cluster's default
+  # provisioner (local-path) fulfils the claim.
+  - target:
+      kind: PersistentVolumeClaim
+      name: kafka-logs
+    patch: |
+      - op: remove
+        path: /spec/volumeName
+      - op: remove
+        path: /spec/storageClassName
+  - target:
+      kind: PersistentVolumeClaim
+      name: zookeeper-data
+    patch: |
+      - op: remove
+        path: /spec/volumeName
+      - op: remove
+        path: /spec/storageClassName
+  - target:
+      kind: PersistentVolumeClaim
+      name: zookeeper-txnlog
+    patch: |
+      - op: remove
+        path: /spec/volumeName
+      - op: remove
+        path: /spec/storageClassName
+
+  # the base hardcodes the broker's advertised INTERNAL listener (and the
+  # schema-registry bootstrap) as kafka.fleet.svc.cluster.local. In the e2e
+  # namespace that name resolves to the LIVE fleet broker, so the test would
+  # silently talk to the real tier instead of its own. Retarget both at the
+  # kafka-e2e service FQDN so the test is network-hermetic. (env entries merge
+  # by name, so only this var is overridden.)
+  - target:
+      kind: StatefulSet
+      name: kafka
+    patch: |
+      apiVersion: apps/v1
+      kind: StatefulSet
+      metadata:
+        name: kafka
+      spec:
+        template:
+          spec:
+            containers:
+              - name: kafka
+                env:
+                  - name: KAFKA_ADVERTISED_LISTENERS
+                    value: INTERNAL://kafka.kafka-e2e.svc.cluster.local:9092,EXTERNAL://kafka.localhost:9094
+  - target:
+      kind: Deployment
+      name: schema-registry
+    patch: |
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: schema-registry
+      spec:
+        template:
+          spec:
+            containers:
+              - name: schema-registry
+                env:
+                  - name: SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS
+                    value: PLAINTEXT://kafka.kafka-e2e.svc.cluster.local:9092

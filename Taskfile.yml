@@ -18,6 +18,15 @@ tasks:
     cmds:
       - buf generate
 
+  e2e:
+    desc: >-
+      End-to-end test of the kafka-tier kube manifests against a reachable
+      cluster (needs a default storageclass). Hermetic: a throwaway kafka-e2e
+      namespace with dynamic storage; never touches ~/var or the fleet ns.
+      Pass flags through, e.g. `task e2e -- --human --keep`.
+    cmds:
+      - ./tests/e2e/kafka-tier-e2e.sh {{.CLI_ARGS}}
+
   ci:
     desc: Full pre-commit / CI gate.
     cmds:
