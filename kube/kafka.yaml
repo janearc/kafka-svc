@@ -57,6 +57,15 @@ spec:
   # schema-registry) connect, get the advertised address back, and reconnect to
   # the same name -- no rebound-address breakage.
   clusterIP: None
+  # the broker advertises its own headless-service FQDN
+  # (kafka.fleet.svc.cluster.local) on the INTERNAL listener, and the readiness
+  # probe follows that advertised address to complete. a headless service only
+  # publishes endpoints for READY pods by default, so the name would not resolve
+  # until the pod is ready -- but the pod cannot become ready until it can reach
+  # its own advertised address. publishNotReadyAddresses breaks that deadlock by
+  # resolving the name as soon as the pod has an IP. (zookeeper does not need
+  # this: its readiness probe uses localhost, not its service DNS.)
+  publishNotReadyAddresses: true
   selector:
     app.kubernetes.io/name: kafka
   ports:
@@ -87,6 +96,13 @@ spec:
         app.kubernetes.io/name: kafka
         app.kubernetes.io/part-of: fleet
     spec:
+      # disable kubernetes docker-link service-env injection: the confluent
+      # image reads KAFKA_* as its config convention, and an injected
+      # KAFKA_PORT=tcp://<clusterip>:9092 collides with the deprecated kafka
+      # "port" config. our explicit listener envs override it so the broker
+      # still comes up, but disabling the links keeps the config surface clean
+      # and matches schema-registry, which crashes outright on the same collision.
+      enableServiceLinks: false
       containers:
         - name: kafka
           image: confluentinc/cp-kafka:7.5.0
