@@ -1,0 +1,65 @@
+name: ci
+
+# Two gates for the kafka backbone:
+#   protos  -- buf lint + FULL_TRANSITIVE breaking-change check on the contracts
+#   e2e     -- stand the kafka tier up on a throwaway kind cluster and assert the
+#              runtime behaviours --dry-run cannot (readiness, the
+#              cluster-id-survives-a-zookeeper-restart regression, produce/
+#              consume, schema-registry HTTP).
+#
+# Both jobs call the same `task` targets a developer runs locally, so CI and the
+# Taskfile cannot drift.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  protos:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # buf breaking compares the working tree against the main branch, so
+          # full history (and the main ref, fetched below) must be present.
+          fetch-depth: 0
+      - uses: bufbuild/buf-setup-action@v1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: arduino/setup-task@v2
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Make the main ref available for `buf breaking`
+        # On a PR build the checkout is the merge ref; materialise local `main`
+        # so `--against .git#branch=main` resolves. On a push to main this is a
+        # no-op (cannot fetch into the current branch) and the check compares
+        # main against itself -> no breaking changes.
+        run: git fetch origin +refs/heads/main:refs/heads/main || true
+      - name: buf lint + breaking (task ci)
+        run: task ci
+
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: arduino/setup-task@v2
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Create kind cluster
+        # kind ships a default storageclass (local-path), which the e2e overlay
+        # relies on for dynamic, restart-surviving PVCs.
+        uses: helm/kind-action@v1
+        with:
+          cluster_name: kafka-e2e-ci
+      - name: Cluster info
+        run: |
+          kubectl get nodes -o wide
+          kubectl get storageclass
+      - name: kafka-tier end-to-end (task e2e)
+        # Generous timeout: kind pulls the confluent images on first use.
+        run: task e2e -- --human --timeout 360
