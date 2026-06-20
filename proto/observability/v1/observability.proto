@@ -65,3 +65,45 @@ message QuotaMetrics {
   uint32 burn_rate_tokens_per_minute = 3;
   uint32 absolute_quota_remaining_cents = 4;
 }
+
+// TransferEvent is emitted by taco after each transfer completes (success or
+// failure). It carries taco's passive instrumentation of one real transfer over a
+// possibly-bad link -- so link quality becomes first-class data to aggregate and
+// reason about, instead of being thrown away the way a plain downloader does. The
+// fields mirror taco's internal per-transfer record. Measurement is passive: these
+// numbers come from the real bytes moved, never a synthetic probe.
+// Subject (RecordNameStrategy): observability.v1.TransferEvent.
+message TransferEvent {
+  // idempotency_key is taco's stable per-transfer id, so duplicate delivery (e.g.
+  // a store-and-forward replay after the link returns) is safe to dedupe.
+  string idempotency_key = 1;
+  string host = 2; // the machine that ran the transfer
+
+  string url = 3;
+  string dest = 4;
+
+  uint64 bytes_transferred = 5;  // payload bytes this run moved
+  uint64 resumed_from_bytes = 6; // bytes already on disk when this run started
+  uint64 content_bytes = 7;      // total size if the server reported one, else 0
+
+  double avg_throughput_bps = 8;
+  double min_throughput_bps = 9; // slowest one-second window (the per-transfer nadir)
+
+  uint32 num_retries = 10;
+  uint32 num_connects = 11; // HTTP requests issued (initial + retries/resumes)
+  uint32 http_code = 12;
+
+  int32 exit_code = 13; // 0 = success, non-zero = the transfer ultimately failed
+  string error = 14;
+
+  // sleep_overlap is true when host sleep/wake fell inside the transfer window,
+  // so a stall can be attributed to the host sleeping rather than to the link.
+  bool sleep_overlap = 15;
+
+  // active_probe distinguishes a deliberate speedtest sample (taco#11) from a real
+  // user transfer. False for ordinary transfers.
+  bool active_probe = 16;
+
+  google.protobuf.Timestamp started_at = 17;
+  google.protobuf.Timestamp ended_at = 18;
+}
