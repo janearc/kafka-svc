@@ -37,6 +37,14 @@ spec:
         app.kubernetes.io/name: schema-registry
         app.kubernetes.io/part-of: fleet
     spec:
+      # kubernetes injects docker-link-style env vars (e.g.
+      # SCHEMA_REGISTRY_PORT=tcp://<clusterip>:8081) for every service in the
+      # namespace. the confluent image reads SCHEMA_REGISTRY_* as its own config
+      # convention, so SCHEMA_REGISTRY_PORT is misparsed as the deprecated
+      # integer "port" setting (value "tcp://...:8081" is not an integer) and the
+      # container exits 1 during configure. disabling service links removes those
+      # injected vars so only our explicit env reaches the image.
+      enableServiceLinks: false
       containers:
         - name: schema-registry
           image: confluentinc/cp-schema-registry:7.5.0
