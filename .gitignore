@@ -1,3 +1,7 @@
 # generated protobuf bindings are never committed — run `task generate` to
 # produce them locally. protoc/buf emit "NO CHECKED-IN PROTOBUF GENCODE".
 gen/
+
+# generated HTML proto docs are never committed — run `task docs` to produce
+# them locally (docs/protos/index.html, opened directly in a browser).
+docs/protos/

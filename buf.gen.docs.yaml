@@ -1,0 +1,14 @@
+version: v2
+# Static HTML documentation for the protobuf contracts. Output is a single,
+# self-contained docs/protos/index.html you open directly in a browser — no
+# server, no container images. Generated output is NOT committed (see
+# .gitignore); run `task docs` to (re)produce it.
+plugins:
+  # Remote plugin: buf runs it on the Buf Schema Registry, so there is no
+  # local protoc-gen-doc install. pseudomuto/protoc-gen-doc is the upstream
+  # community doc generator (https://github.com/pseudomuto/protoc-gen-doc).
+  - remote: buf.build/community/pseudomuto-doc
+    out: docs/protos
+    opt:
+      # "<format>,<output-filename>" — emit one standalone HTML page.
+      - html,index.html
