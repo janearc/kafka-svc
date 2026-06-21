@@ -18,6 +18,15 @@ tasks:
     cmds:
       - buf generate
 
+  docs:
+    desc: >-
+      Generate browsable static HTML proto docs into docs/protos/index.html
+      (never committed; see .gitignore). Open the file directly in a browser —
+      no server, no container images. Uses buf's remote doc plugin, with a
+      local protoc-gen-doc fallback if the registry is unreachable.
+    cmds:
+      - ./scripts/gen-proto-docs.sh
+
   e2e:
     desc: >-
       End-to-end test of the kafka-tier kube manifests against a reachable

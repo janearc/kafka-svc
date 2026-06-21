@@ -38,6 +38,29 @@ Source of truth lives under `proto/`, packaged by domain and version:
 Generated language bindings are **not committed**. Run `task generate` to emit
 them into `gen/` (gitignored); consumers regenerate from this contract.
 
+### Browsable docs
+
+For a human-readable view of every message, field, and comment, generate the
+static HTML docs:
+
+```bash
+task docs   # -> docs/protos/index.html
+```
+
+Then open the page directly in a browser — no server, no container images:
+
+```bash
+open docs/protos/index.html      # macOS
+# or just point a browser at the file:// path
+```
+
+The output is a single self-contained page and is **not committed**
+(gitignored); regenerate it from the contracts whenever they change.
+Generation uses `buf`'s remote doc plugin
+(`buf.build/community/pseudomuto-doc`), so nothing is installed locally; if the
+registry is unreachable, `scripts/gen-proto-docs.sh` falls back to a local
+`protoc-gen-doc` it `go install`s on demand.
+
 ## Naming conventions
 
 **Topics** are lowercase and treated as a stable API. Hierarchy levels are
