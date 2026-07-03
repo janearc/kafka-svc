@@ -65,14 +65,25 @@ registry is unreachable, `scripts/gen-proto-docs.sh` falls back to a local
 
 **Topics** are lowercase and treated as a stable API. Hierarchy levels are
 separated by dots; a level that needs more than one word is kebab-cased within
-that level (so `token-burn` is a single level, not two). This is the Confluent
-convention — `.` is structure, `-` is intra-level word separation:
+that level. This is the Confluent convention — `.` is structure, `-` is
+intra-level word separation.
+
+The provisioned topic set is declared once in big-little-mesh
+(`admin/topics.go`, `FleetTopics`) — code is truth on the names; this table
+mirrors it and says what each topic carries today:
 
 | Topic | Carries |
 |-------|---------|
-| `observability.heartbeat` | `observability.v1.ServiceHealthHeartbeat` |
-| `observability.token-burn` | `observability.v1.TokenBurnEvent` |
-| `delight.backup` | `delight.v1.BackupEvent` |
+| `observability.events` | `observability.v1.ServiceHealthHeartbeat` — one topic; `RecordNameStrategy` keeps per-message subjects, so no per-message topic exists. (`observability.v1.TokenBurnEvent` is declared in the contract but has NO producer anywhere in the fleet today — a spec-time artifact; deprecate-never-delete keeps the message, this table only lists traffic that exists) |
+| `bento.events` | `bento.v1.BentoLifecycleEvent` |
+| `delight.events` | `delight.v1.BackupEvent` |
+| `paling.events` | `paling.v1.BanchanLifecycleEvent` |
+| `magpie.events` | declared ahead of magpie's events landing |
+
+`observability.v1.TransferEvent` (emitted by taco) has a subject but no
+settled topic: taco defaults to `observability.transfers`, which `FleetTopics`
+does not provision — an open inconsistency tracked on the taco repo, not a row
+in this table until it is resolved.
 
 **Subjects** use `RecordNameStrategy`: the registry subject is the message's
 fully-qualified name (e.g. `observability.v1.ServiceHealthHeartbeat`), not the
