@@ -65,9 +65,8 @@ registry is unreachable, `scripts/gen-proto-docs.sh` falls back to a local
 
 **Topics** are lowercase and treated as a stable API. Hierarchy levels are
 separated by dots; a level that needs more than one word is kebab-cased within
-that level (a hypothetical `token-burn` would be one level, not two). This is
-the Confluent convention — `.` is structure, `-` is intra-level word
-separation.
+that level. This is the Confluent convention — `.` is structure, `-` is
+intra-level word separation.
 
 The provisioned topic set is declared once in big-little-mesh
 (`admin/topics.go`, `FleetTopics`) — code is truth on the names; this table
@@ -75,7 +74,7 @@ mirrors it and says what each topic carries today:
 
 | Topic | Carries |
 |-------|---------|
-| `observability.events` | `observability.v1.ServiceHealthHeartbeat`, `observability.v1.TokenBurnEvent` — one topic; `RecordNameStrategy` keeps per-message subjects, so no per-message topic exists |
+| `observability.events` | `observability.v1.ServiceHealthHeartbeat` — one topic; `RecordNameStrategy` keeps per-message subjects, so no per-message topic exists. (`observability.v1.TokenBurnEvent` is declared in the contract but has NO producer anywhere in the fleet today — a spec-time artifact; deprecate-never-delete keeps the message, this table only lists traffic that exists) |
 | `bento.events` | `bento.v1.BentoLifecycleEvent` |
 | `delight.events` | `delight.v1.BackupEvent` |
 | `paling.events` | `paling.v1.BanchanLifecycleEvent` |
