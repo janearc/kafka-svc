@@ -1,3 +1,22 @@
+# kafka-svc — ARCHIVED
+
+Sunset executed 2026-07-24 (sprint 16, T8). This repository is read-only
+history; nothing consumes it. Where its three duties went:
+
+- **Event contracts** — janearc/big-little-mesh (`proto/bento/v1`); the
+  composition surface landed there on its PR 84, and consumers
+  vendor-generate from it, per mesh practice.
+- **Broker manifests** — janearc/delightd (`kube/`); the brokers are
+  delightd furniture now, probed via `meubilair.yaml` and recovered per
+  delightd's `docs/recovery.md`. The relocation survived a live restart
+  proof (sprint 16 capstone, 2026-07-24) before this archive was cut.
+- **Governance** — the schema rules ride with the contracts, in
+  big-little-mesh.
+
+The text below is the repository as it was, kept for the record.
+
+---
+
 # kafka-svc
 
 The fleet's message backbone and the canonical home for its event contracts.
